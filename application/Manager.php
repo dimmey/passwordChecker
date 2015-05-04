@@ -1,8 +1,15 @@
 <?php
 namespace application;
 
+/**
+ * Class Manager
+ * @package application
+ */
 class Manager
 {
+    const CONFIG_KEY_PASSWORD_RULES = 'passwordRules';
+    const CONFIG_KEY_FILE_PATH      = 'filepath';
+
     /**
      * @var \application\Database\Db
      */
@@ -18,7 +25,7 @@ class Manager
      */
     public function __construct()
     {
-        $this->connection = new \application\Database\Db();
+        $this->db = new \application\Database\Db();
     }
 
     /**
@@ -37,7 +44,7 @@ class Manager
      * - resets database before the new check
      * - retrieves the list of passwords to check
      * - checks above list
-     * - updates database with
+     * - updates database for successful checks
      *
      * @return bool whether the database update was successful
      */
@@ -47,7 +54,7 @@ class Manager
         $this->resetDatabase();
         $passwords = $this->retrieveListOfPasswords();
         $passwordChecker = new \application\checker\PasswordChecker(
-                self::getConfig()['passwordRules']['filepath']
+                self::getConfig()[self::CONFIG_KEY_PASSWORD_RULES][self::CONFIG_KEY_FILE_PATH]
         );
 
         foreach ($passwords as $id => $password) {
@@ -55,7 +62,12 @@ class Manager
                 $validPasswords[] = $id;
             }
         }
-        return $this->updateDatabaseWithValidPasswords($validPasswords);
+        
+        if (!empty($validPasswords)) {
+            return $this->updateDatabaseWithValidPasswords($validPasswords);    
+        }
+        
+        return true;
     }
 
     /**
@@ -66,7 +78,7 @@ class Manager
     protected function retrieveListOfPasswords()
     {
         $passwords = [];
-        $results = $this->connection->query('SELECT id, password FROM `passwords`');
+        $results = $this->db->query('SELECT id, password FROM `passwords`');
         if ($results) {
             foreach ($results as $row) {
                 $passwords[$row['id']] = $row['password'];
@@ -82,7 +94,7 @@ class Manager
      */
     protected function resetDatabase()
     {
-        return $this->connection->query('UPDATE `passwords` SET `valid`=0');
+        return $this->db->query('UPDATE `passwords` SET `valid`=0');
     }
 
     /**
@@ -95,7 +107,7 @@ class Manager
     {
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
-        return $this->connection->prepareAndExecute(
+        return $this->db->prepareAndExecute(
             "UPDATE `passwords` SET `valid`=1 WHERE `id` IN ($placeholders)",
             $ids
         );

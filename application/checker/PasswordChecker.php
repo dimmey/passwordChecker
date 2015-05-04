@@ -1,6 +1,10 @@
 <?php
 namespace application\checker;
 
+/**
+ * Class PasswordChecker
+ * @package application\checker
+ */
 class PasswordChecker
 {
     const RULES_KEY_MESSAGE = 'message';

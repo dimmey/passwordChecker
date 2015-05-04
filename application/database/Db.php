@@ -1,6 +1,10 @@
 <?php
 namespace application\Database;
 
+/**
+ * Class Db
+ * @package application\Database
+ */
 class Db
 {
     const CONFIG_KEY_MYSQL      = 'mysql';

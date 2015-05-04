@@ -12,8 +12,8 @@ In order to run the application you should take the following steps
 3. If it is not installed, install the **yaml php extension** (http://php.net/manual/en/yaml.installation.php)
 
 ## Check Rules Definition
-The rules against wich each password is checked, are contained in *'appclication/configuration/passwordRules.yaml'*
-For each rule we define the regular expression that is evaluated and an error message that will be outputed in case the check fails. By adding or removing new rule items, the checking process can be easily expanded.
+The rules against which each password is checked, are contained in *'application/configuration/passwordRules.yaml'*
+For each rule we define the regular expression that is evaluated and an error message that will be output in case the check fails. By adding or removing new rule items, the checking process can be easily expanded.
 
 ## Execution
 The script is easily executed from command line by typing **php index.php**
