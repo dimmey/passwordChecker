@@ -53,6 +53,12 @@ class Manager
         $validPasswords = [];
         $this->resetDatabase();
         $passwords = $this->retrieveListOfPasswords();
+        if (empty($passwords)) {
+            echo $this->getEmptyPasswordListMessage();
+            return false;
+        }
+
+        echo $this->getInitialMessage();
         $passwordChecker = new \application\checker\PasswordChecker(
                 self::getConfig()[self::CONFIG_KEY_PASSWORD_RULES][self::CONFIG_KEY_FILE_PATH]
         );
@@ -111,6 +117,22 @@ class Manager
             "UPDATE `passwords` SET `valid`=1 WHERE `id` IN ($placeholders)",
             $ids
         );
+    }
+
+    /**
+     * @return string
+     */
+    protected function getInitialMessage()
+    {
+        return "\nProcessing Password List .....\n\n";
+    }
+
+    /**
+     * @return string
+     */
+    protected function getEmptyPasswordListMessage()
+    {
+        return "\nThe password list was found empty\n";
     }
 
 } 
