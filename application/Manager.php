@@ -7,13 +7,17 @@ namespace application;
  */
 class Manager
 {
-    const CONFIG_KEY_PASSWORD_RULES = 'passwordRules';
-    const CONFIG_KEY_FILE_PATH      = 'filepath';
+    const CONFIG_KEY_PASSWORD_RULES     = 'passwordRules';
+    const CONFIG_RULES_KEY_MESSAGE      = 'message';
+    const CONFIG_RULES_KEY_REGEXP       = 'regexp';
+    const CONFIG_RULES_KEY_RULES        = 'rules';
+    const CONFIG_KEY_FILE_PATH          = 'filepath';
+
 
     /**
-     * @var \application\Database\Db
+     * @var \application\model\Password
      */
-    protected $db;
+    protected $passwordModel;
 
     /**
      * @var array
@@ -21,14 +25,17 @@ class Manager
     public static $config;
 
     /**
-     *
+     * Initializes Password Model
      */
     public function __construct()
     {
-        $this->db = new \application\Database\Db();
+        $this->passwordModel = new \application\model\Password(
+            new \application\Database\Db()
+        );
     }
 
     /**
+     * Retrieves configuration array
      * @return array
      */
     public static function getConfig()
@@ -51,7 +58,8 @@ class Manager
     public function processPasswords()
     {
         $validPasswords = [];
-        $this->resetDatabase();
+        $this->passwordModel->setAllInvalid();
+
         $passwords = $this->retrieveListOfPasswords();
         if (empty($passwords)) {
             echo $this->getEmptyPasswordListMessage();
@@ -59,8 +67,9 @@ class Manager
         }
 
         echo $this->getInitialMessage();
+
         $passwordChecker = new \application\checker\PasswordChecker(
-                self::getConfig()[self::CONFIG_KEY_PASSWORD_RULES][self::CONFIG_KEY_FILE_PATH]
+            $this->getValidationRules(self::getConfig()[self::CONFIG_KEY_PASSWORD_RULES][self::CONFIG_KEY_FILE_PATH])
         );
 
         foreach ($passwords as $id => $password) {
@@ -70,7 +79,7 @@ class Manager
         }
         
         if (!empty($validPasswords)) {
-            return $this->updateDatabaseWithValidPasswords($validPasswords);    
+            return $this->passwordModel->setValidByIds($validPasswords);
         }
         
         return true;
@@ -84,39 +93,14 @@ class Manager
     protected function retrieveListOfPasswords()
     {
         $passwords = [];
-        $results = $this->db->query('SELECT id, password FROM `passwords`');
+        $results = $this->passwordModel->fetchAll();
         if ($results) {
             foreach ($results as $row) {
-                $passwords[$row['id']] = $row['password'];
+                $passwords[$row[\application\model\Password::COLUMN_NAME_ID]]
+                                = $row[\application\model\Password::COLUMN_NAME_PASSWORD];
             }
         }
         return $passwords;
-    }
-
-    /**
-     * Sets all passwords in database as unchecked
-     *
-     * @return \PDOStatement
-     */
-    protected function resetDatabase()
-    {
-        return $this->db->query('UPDATE `passwords` SET `valid`=0');
-    }
-
-    /**
-     * Updates the valid passwords in database, after check
-     *
-     * @param array $ids
-     * @return bool
-     */
-    protected function updateDatabaseWithValidPasswords(array $ids)
-    {
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-
-        return $this->db->prepareAndExecute(
-            "UPDATE `passwords` SET `valid`=1 WHERE `id` IN ($placeholders)",
-            $ids
-        );
     }
 
     /**
@@ -133,6 +117,77 @@ class Manager
     protected function getEmptyPasswordListMessage()
     {
         return "\nThe password list was found empty\n";
+    }
+
+    /**
+     * Reads rules from yaml file, validates, and creates array of ValidationRule objects
+     * to be injected in Checker class
+     * @param string $filePath
+     * @return \application\checker\ValidationRule[]
+     */
+    protected function getValidationRules($filePath)
+    {
+        try {
+            $reader = new \application\yaml\Reader($filePath);
+            $rulesArray = $reader->getContent();
+            $this->validateRulesArray($rulesArray);
+            return $this->createValidationRules($rulesArray);
+        } catch (\Exception $ex) {
+            echo 'Error Creating Validation Rules: ' . $ex->getMessage() . "\n";
+            exit;
+        }
+    }
+
+    /**
+     * Creates array of ValidationRule objects from input config array
+     * @param array $rulesArray
+     * @return \application\checker\ValidationRule[]
+     */
+    protected function createValidationRules(array $rulesArray)
+    {
+        $rules = [];
+        foreach ($rulesArray[self::CONFIG_RULES_KEY_RULES] as $rule) {
+            $rules[] = new \application\checker\ValidationRule(
+                $rule[self::CONFIG_RULES_KEY_REGEXP], $rule[self::CONFIG_RULES_KEY_MESSAGE]
+            );
+        }
+        return $rules;
+    }
+
+    /**
+     * Processing input rule array, as being retrieved from yaml file
+     * The rules in the input array are validated for correct structure, and only the ones that
+     * pass the validation are finally kept to be used
+     *
+     * @param array $rules
+     * @throws \Exception
+     * @return void
+     */
+    protected function validateRulesArray(array &$rules)
+    {
+        if (
+            empty($rules)
+            || !array_key_exists(self::CONFIG_RULES_KEY_RULES, $rules)
+            || empty($rules[self::CONFIG_RULES_KEY_RULES])
+
+        ) {
+            throw new \Exception('Password Checker could not function with an empty set of rules.');
+        }
+
+        foreach ($rules[self::CONFIG_RULES_KEY_RULES] as $key => $rule) {
+            if (
+                !array_key_exists(self::CONFIG_RULES_KEY_REGEXP, $rule) ||
+                !array_key_exists(self::CONFIG_RULES_KEY_MESSAGE, $rule)
+            ) {
+                unset($rules[self::CONFIG_RULES_KEY_RULES][$key]);
+            }
+        }
+
+        if (empty($rules[self::CONFIG_RULES_KEY_RULES])) {
+            throw new \Exception(
+                'Password Checker could not function with an empty set of rules. The syntax of the rules file is not correct'
+            );
+        }
     }
 
 } 

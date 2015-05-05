@@ -7,39 +7,34 @@ namespace application\checker;
  */
 class PasswordChecker
 {
-    const RULES_KEY_MESSAGE = 'message';
-    const RULES_KEY_REGEXP  = 'regexp';
-    const RULES_KEY_RULES   = 'rules';
-
     /**
-     * @var array
+     * @var \application\checker\ValidationRule[]
      */
     protected $rules;
 
     /**
-     * Upon construction the set of rules are injected to the class
+     * Upon construction the set of rules is injected to the class
      *
-     * @param string $filePath
+     * @param array $rules
      */
-    public function __construct($filePath)
+    public function __construct(array $rules)
     {
-        try {
-            $reader = new \application\yaml\Reader($filePath);
-            $rules = $reader->getContent();
-            $this->validateRules($rules);
-            $this->rules = $rules;
-        } catch (\Exception $ex) {
-            echo 'Error Initiating ' .__CLASS__ . ' : ' . $ex->getMessage() . "\n";
-            exit;
-        }
+        $this->rules = $rules;
     }
 
     /**
      * @return array
      */
-    protected function getRules()
+    public function getRules()
     {
-        return $this->rules[self::RULES_KEY_RULES];
+        return $this->rules;
+    }
+
+    /**
+     * @param array $rules
+     */
+    public function setRules(array $rules) {
+        $this->rules = $rules;
     }
 
     /**
@@ -63,14 +58,14 @@ class PasswordChecker
      * Checks input password against specific rule
      *
      * @param string $password
-     * @param array $rule
+     * @param \application\checker\ValidationRule $rule
      * @return bool
      */
-    protected function checkAgainstRule($password, array $rule) {
-        if (preg_match($rule[self::RULES_KEY_REGEXP], $password)) {
+    protected function checkAgainstRule($password, \application\checker\ValidationRule $rule) {
+        if (preg_match($rule->getRegularExpression(), $password)) {
             return true;
         } else {
-            echo $this->getErrorMessage($password, $rule[self::RULES_KEY_MESSAGE]);
+            echo $this->getErrorMessage($password, $rule->getErrorMessage());
             return false;
         }
     }
@@ -96,41 +91,5 @@ class PasswordChecker
     protected function getErrorMessage($password, $message)
     {
         return "[FAILURE]: Password '$password' is not valid. Error: $message\n";
-    }
-
-    /**
-     * Processing input rule array, as being retrieved from yaml file
-     * The rules in the input array are validated for correct structure, and only the ones that
-     * pass the validation are finally kept to be used
-     *
-     * @param array $rules
-     * @throws \Exception
-     * @return void
-     */
-    protected function validateRules(array &$rules)
-    {
-        if (
-            empty($rules)
-            || !array_key_exists(self::RULES_KEY_RULES, $rules)
-            || empty($rules[self::RULES_KEY_RULES])
-
-        ) {
-            throw new \Exception('Password Checker could not function with an empty set of rules.');
-        }
-
-        foreach ($rules[self::RULES_KEY_RULES] as $key => $rule) {
-            if (
-                !array_key_exists(self::RULES_KEY_REGEXP, $rule) ||
-                !array_key_exists(self::RULES_KEY_MESSAGE, $rule)
-            ) {
-                unset($rules[self::RULES_KEY_RULES][$key]);
-            }
-        }
-
-        if (empty($rules[self::RULES_KEY_RULES])) {
-            throw new \Exception(
-                'Password Checker could not function with an empty set of rules. The syntax of the rules file is not correct'
-            );
-        }
     }
 } 
